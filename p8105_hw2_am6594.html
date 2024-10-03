@@ -368,7 +368,9 @@ library(dplyr)</code></pre>
 <pre><code>## The following objects are masked from &#39;package:base&#39;:
 ## 
 ##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>library(tidyr)</code></pre>
+<pre class="r"><code>library(tidyr)
+library(readr)
+library(tibble)</code></pre>
 <div id="problem-1" class="section level1">
 <h1>Problem 1</h1>
 </div>
@@ -497,6 +499,169 @@ cigarette butts collected by Gwynnda in June of 2022 1.812^{4}.</p>
 </div>
 <div id="problem-3" class="section level1">
 <h1>Problem 3</h1>
+<div id="part-1-bakers.csv-bakes.csv-and-results.csv" class="section level2">
+<h2>Part 1: ‘bakers.csv’, ‘bakes.csv’, and ‘results.csv’</h2>
+<pre class="r"><code>#Import CSV
+bakers = read_csv(&quot;~/Desktop/p8105_hw2_am6594/data/bakers.csv&quot;)</code></pre>
+<pre><code>## Rows: 120 Columns: 5
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (3): Baker Name, Baker Occupation, Hometown
+## dbl (2): Series, Baker Age
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>bakes = read_csv(&quot;~/Desktop/p8105_hw2_am6594/data/bakes.csv&quot;)</code></pre>
+<pre><code>## Rows: 548 Columns: 5
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (3): Baker, Signature Bake, Show Stopper
+## dbl (2): Series, Episode
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>results = read_csv(&quot;~/Desktop/p8105_hw2_am6594/data/results.csv&quot;, skip = 2)</code></pre>
+<pre><code>## Rows: 1136 Columns: 5
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (2): baker, result
+## dbl (3): series, episode, technical
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>#Rename each CSV for consistency
+colnames(bakers) = c(&#39;Name&#39;, &#39;Series&#39;, &#39;Age&#39;, &#39;Occupation&#39;, &#39;Hometown&#39;)
+colnames(bakes) = c(&#39;Series&#39;, &#39;Episode&#39;,&#39;Name&#39;, &#39;Signature Bake&#39;, &#39;Show Stopper&#39;)
+colnames(results) = c(&#39;Series&#39;, &#39;Episode&#39;, &#39;Name&#39;, &#39;Technical&#39;, &#39;Result&#39;)
+
+#Remove the last name for each baker in &#39;bakers.csv&#39;
+bakers$Name &lt;- sub(&quot; .*&quot;, &quot;&quot;, bakers$Name)
+
+#Convert &#39;Age&#39; in &#39;bakers_clean&#39; to integer
+bakers_clean &lt;- bakers %&gt;%
+  drop_na() %&gt;%
+  mutate(Age = as.integer(Age),
+         Series = as.integer(Series))
+
+#Convert &#39;Episode&#39; and &#39;Series in &#39;bakes_clean&#39; to integer
+bakes_clean &lt;- bakes %&gt;%
+  drop_na() %&gt;%
+  mutate(Series = as.integer(Series),
+         Episode = as.integer(Episode))
+
+#Convert &#39;Episode&#39;, &#39;Series&#39;, and &#39;Technical&#39; in &#39;results_clean&#39; to integer
+results_clean &lt;- results %&gt;%
+  drop_na() %&gt;%
+  mutate(Series = as.integer(Series),
+         Episode = as.integer(Episode),
+         Technical = as.integer(Technical))
+
+#Check for completeness and correctness across datasets
+bakes_not_in_bakers &lt;- anti_join(bakes_clean, bakers_clean, by = c(&quot;Series&quot;, &quot;Name&quot;))
+results_not_in_bakes &lt;- anti_join(results_clean, bakes_clean, by = c(&quot;Series&quot;, &quot;Episode&quot;, &quot;Name&quot;))</code></pre>
+<pre class="r"><code>#Merge to a single, final dataset
+combined_baker &lt;- bakers %&gt;% left_join(bakes, by = c(&quot;Name&quot;, &quot;Series&quot;))
+combined_baker &lt;- left_join(combined_baker, results, by = c(&quot;Series&quot;, &quot;Episode&quot;, &quot;Name&quot;))
+
+#Organize the variables in meaningful order
+combined_baker &lt;- combined_baker %&gt;%
+  select(Name, Series, Episode, `Signature Bake`, `Show Stopper`, Technical, Result, Age, Hometown, Occupation)
+
+#Clean the final dataset
+combined_baker &lt;-  combined_baker%&gt;%
+  filter(!is.na(Technical))
+
+#Export the final dataset
+output_path &lt;- &quot;~/Desktop/p8105_hw2_am6594/data/final_baker_dataset.csv&quot; #Define the output path
+write_csv(combined_baker, output_path) # Export the final dataset as a CSV file</code></pre>
+<p>Data cleaning process: My data cleaning process starts with importing
+the three CSV. After checking for the column’s name, I renamed the
+column across three CSV to ensure consistency and prepare for later
+merging. Then, I converted all numeric columns, such as “Age,” into
+integers. After that, I checked for completeness and correctness across
+datasets to ensure successful merging. Initially, the merge of the
+dataset failed. So I revisited my preparation process and realized each
+baker’s name was shown as full name, including first name and last name,
+in ‘bakers.csv’, while only showing first name in the other two CSV.
+Thus, after importing the dataset, I add another line to remove the last
+name.</p>
+<p>Final dataset brief: The final dataset was named
+‘final_baker_dataset.csv.’ The final CSV contains 533 datasets. The
+final output was ordered: Name, Series, Episode, Signature Bake, Show
+Stopper, Technical, Result, Age, Hometown, and Occupation. In this
+order, people can prioritize identifying information first, then baking
+performance-related columns, followed by supplementary biographical data
+at the end, enhancing readability.</p>
+<pre class="r"><code>#create a table showing the star baker or winner of each episode Seasons 5 through 10
+star_baker_data &lt;- combined_baker %&gt;%
+  filter(Series &gt;= 5 &amp; Series &lt;= 10, Result %in% c(&quot;STAR BAKER&quot;, &quot;WINNER&quot;)) %&gt;%
+  select(Series, Episode, Name, Result) %&gt;%
+  arrange(Series, Episode)
+
+#Convert to tibble
+star_baker_tibble &lt;- as_tibble(star_baker_data)
+
+#Check for any predictable overall winners by listing all the names that appear more than twice
+name_counts &lt;- star_baker_tibble %&gt;%
+  count(Name, sort = TRUE)
+names_more_than_twice &lt;- name_counts %&gt;%
+  filter(n &gt; 2)</code></pre>
+<p>The table was listed in Series order, starting with Season 5 Episode
+1. Some predictable winners had won Star Baker or Winner more than twice
+over the five seasons. These are the relatively predictable winners:
+Richard, Candice, Nadiya, Ian, Sophie, Steven. On the other hand, many
+bakers appeared as surprise winners by only winning the star baker or
+winner once over the five seasons.</p>
+</div>
+<div id="part-2-viewers.csv" class="section level2">
+<h2>Part 2: ‘viewers.csv’</h2>
+<pre class="r"><code>#Import viewers.csv
+viewers = read_csv(&quot;~/Desktop/p8105_hw2_am6594/data/viewers.csv&quot;, col_names = T)</code></pre>
+<pre><code>## Rows: 10 Columns: 11
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## dbl (11): Episode, Series 1, Series 2, Series 3, Series 4, Series 5, Series ...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>#Convert the format of the table
+viewer_clean &lt;- viewers %&gt;%
+  pivot_longer(cols = starts_with(&quot;Series&quot;),  # Select all columns starting with &quot;Series&quot;
+               names_to = &quot;Series&quot;,           # New column for Series names
+               values_to = &quot;Viewership&quot;)      # New column for viewership values
+
+#Extract the series number from the &quot;Series&quot; column
+viewer_clean &lt;- viewer_clean %&gt;%
+  mutate(Series = as.integer(gsub(&quot;Series &quot;, &quot;&quot;, Series)))
+
+#Calculate the average viewership for Seasons 1
+average_season1 &lt;- viewer_clean %&gt;%
+  filter(Series == 1) %&gt;% 
+  summarize(Average_Viewership = mean(Viewership, na.rm = TRUE))
+
+#Calculate the average viewership for Seasons 5
+average_season5 &lt;- viewer_clean %&gt;%
+  filter(Series == 5) %&gt;% 
+  summarize(Average_Viewership = mean(Viewership, na.rm = TRUE))
+
+#The first 10 rows of this dataset
+head(viewer_clean, 10)</code></pre>
+<pre><code>## # A tibble: 10 × 3
+##    Episode Series Viewership
+##      &lt;dbl&gt;  &lt;int&gt;      &lt;dbl&gt;
+##  1       1      1       2.24
+##  2       1      2       3.1 
+##  3       1      3       3.85
+##  4       1      4       6.6 
+##  5       1      5       8.51
+##  6       1      6      11.6 
+##  7       1      7      13.6 
+##  8       1      8       9.46
+##  9       1      9       9.55
+## 10       1     10       9.62</code></pre>
+<p>The average viewership in Season 1 and in Season 5 is 2.77 and
+10.0393 respectively.</p>
+</div>
 </div>
 
 

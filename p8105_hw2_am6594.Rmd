@@ -14,11 +14,44 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readxl)
 library(dplyr)
 library(tidyr)
+library(readr)
+library(tibble)
 ```
 
 
 # Problem 1
 
+```{r}
+#Import data
+NYC_Trans = read_csv("~/Desktop/p8105_hw2_am6594/data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv")
+
+#Retain required datasets
+NYC_Trans_Clean <- NYC_Trans %>%
+  select('Line', 'Station Name', 'Station Latitude', 'Station Longitude', 
+  'Route1', 'Route2', 'Route3', 'Route4','Route5', 'Route6', 'Route7', 'Route8',
+  'Route9', 'Route10', 'Route11', 'Entry', 'Vending', 'Entrance Type', 'ADA')
+
+#Convert the entry variable from character to a logical variable 
+NYC_Trans_Clean <- NYC_Trans_Clean %>%
+  mutate(Entry = ifelse(Entry == "YES", TRUE, FALSE))
+
+```
+
+
+```{r}
+#Calculate the number of distinct station
+number_of_station <- NYC_Trans_Clean %>%  # Make sure to use your dataframe's name here
+  select(`Station Name`, Line) %>%
+  distinct()
+
+#Calculate the number of ADA compliant stations
+ADA_station <- NYC_Trans_Clean %>%
+  filter(ADA == "TRUE") %>%
+  distinct(`Station Name`, Line)
+```
+
+The number of distinct stations is `r nrow(number_of_station)`.
+The number of ADA compliant stations is `r nrow(ADA_station)`.
 
 # Problem 2
 
@@ -153,3 +186,119 @@ total_cig_butts_gwynnda_june_2022 <- combined_trash_wheel_data %>%
 The combined Trash Wheel dataset contains data from three trash collection systems: Mr. Trash Wheel, Professor Trash Wheel, and Gwynnda Trash Wheel. The combined dataset contains variables `r colnames(combined_trash_wheel_data)`. The combined dataset has a total of `r nrow(combined_trash_wheel_data)` data. For available data, the total weight of trash collected by Professor Trash Wheel `r total_weight_prof` and the total number of cigarette butts collected by Gwynnda in June of 2022 `r total_cig_butts_gwynnda_june_2022`.
 
 # Problem 3
+
+## Part 1: 'bakers.csv', 'bakes.csv', and 'results.csv'
+```{r}
+#Import CSV
+bakers = read_csv("~/Desktop/p8105_hw2_am6594/data/bakers.csv")
+bakes = read_csv("~/Desktop/p8105_hw2_am6594/data/bakes.csv")
+results = read_csv("~/Desktop/p8105_hw2_am6594/data/results.csv", skip = 2)
+
+#Rename each CSV for consistency
+colnames(bakers) = c('Name', 'Series', 'Age', 'Occupation', 'Hometown')
+colnames(bakes) = c('Series', 'Episode','Name', 'Signature Bake', 'Show Stopper')
+colnames(results) = c('Series', 'Episode', 'Name', 'Technical', 'Result')
+
+#Remove the last name for each baker in 'bakers.csv'
+bakers$Name <- sub(" .*", "", bakers$Name)
+
+#Convert 'Age' in 'bakers_clean' to integer
+bakers_clean <- bakers %>%
+  drop_na() %>%
+  mutate(Age = as.integer(Age),
+         Series = as.integer(Series))
+
+#Convert 'Episode' and 'Series in 'bakes_clean' to integer
+bakes_clean <- bakes %>%
+  drop_na() %>%
+  mutate(Series = as.integer(Series),
+         Episode = as.integer(Episode))
+
+#Convert 'Episode', 'Series', and 'Technical' in 'results_clean' to integer
+results_clean <- results %>%
+  drop_na() %>%
+  mutate(Series = as.integer(Series),
+         Episode = as.integer(Episode),
+         Technical = as.integer(Technical))
+
+#Check for completeness and correctness across datasets
+bakes_not_in_bakers <- anti_join(bakes_clean, bakers_clean, by = c("Series", "Name"))
+results_not_in_bakes <- anti_join(results_clean, bakes_clean, by = c("Series", "Episode", "Name"))
+```
+
+```{r}
+#Merge to a single, final dataset
+combined_baker <- bakers %>% left_join(bakes, by = c("Name", "Series"))
+combined_baker <- left_join(combined_baker, results, by = c("Series", "Episode", "Name"))
+
+#Organize the variables in meaningful order
+combined_baker <- combined_baker %>%
+  select(Name, Series, Episode, `Signature Bake`, `Show Stopper`, Technical, Result, Age, Hometown, Occupation)
+
+#Clean the final dataset
+combined_baker <-  combined_baker%>%
+  filter(!is.na(Technical))
+
+#Export the final dataset
+output_path <- "~/Desktop/p8105_hw2_am6594/data/final_baker_dataset.csv" #Define the output path
+write_csv(combined_baker, output_path) # Export the final dataset as a CSV file
+```
+
+
+Data cleaning process: 
+My data cleaning process starts with importing the three CSV. After checking for the column's name, I renamed the column across three CSV to ensure consistency and prepare for later merging. Then, I converted all numeric columns, such as "Age," into integers. After that, I checked for completeness and correctness across datasets to ensure successful merging. Initially, the merge of the dataset failed. So I revisited my preparation process and realized each baker's name was shown as full name, including first name and last name, in 'bakers.csv', while only showing first name in the other two CSV. Thus, after importing the dataset, I add another line to remove the last name. 
+
+Final dataset brief: 
+The final dataset was named 'final_baker_dataset.csv.' The final CSV contains `r nrow(combined_baker)` datasets. The final output was ordered: Name, Series, Episode, Signature Bake, Show Stopper, Technical, Result, Age, Hometown, and Occupation. In this order, people can prioritize identifying information first, then baking performance-related columns, followed by supplementary biographical data at the end, enhancing readability.
+
+
+```{r}
+#create a table showing the star baker or winner of each episode Seasons 5 through 10
+star_baker_data <- combined_baker %>%
+  filter(Series >= 5 & Series <= 10, Result %in% c("STAR BAKER", "WINNER")) %>%
+  select(Series, Episode, Name, Result) %>%
+  arrange(Series, Episode)
+
+#Convert to tibble
+star_baker_tibble <- as_tibble(star_baker_data)
+
+#Check for any predictable overall winners by listing all the names that appear more than twice
+name_counts <- star_baker_tibble %>%
+  count(Name, sort = TRUE)
+names_more_than_twice <- name_counts %>%
+  filter(n > 2)
+```
+The table was listed in Series order, starting with Season 5 Episode 1. Some predictable winners had won Star Baker or Winner more than twice over the five seasons. These are the relatively predictable winners: `r names_more_than_twice$Name`. On the other hand, many bakers appeared as surprise winners by only winning the star baker or winner once over the five seasons.
+
+## Part 2: 'viewers.csv'
+
+```{r}
+#Import viewers.csv
+viewers = read_csv("~/Desktop/p8105_hw2_am6594/data/viewers.csv", col_names = T)
+
+#Convert the format of the table
+viewer_clean <- viewers %>%
+  pivot_longer(cols = starts_with("Series"),  # Select all columns starting with "Series"
+               names_to = "Series",           # New column for Series names
+               values_to = "Viewership")      # New column for viewership values
+
+#Extract the series number from the "Series" column
+viewer_clean <- viewer_clean %>%
+  mutate(Series = as.integer(gsub("Series ", "", Series)))
+
+#Calculate the average viewership for Seasons 1
+average_season1 <- viewer_clean %>%
+  filter(Series == 1) %>% 
+  summarize(Average_Viewership = mean(Viewership, na.rm = TRUE))
+
+#Calculate the average viewership for Seasons 5
+average_season5 <- viewer_clean %>%
+  filter(Series == 5) %>% 
+  summarize(Average_Viewership = mean(Viewership, na.rm = TRUE))
+
+#The first 10 rows of this dataset
+head(viewer_clean, 10)
+```
+
+The average viewership in Season 1 and in Season 5 is `r average_season1` and `r average_season5` respectively. 
+
