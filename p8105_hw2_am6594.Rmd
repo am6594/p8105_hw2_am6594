@@ -1,0 +1,155 @@
+---
+title: "p8105_hw2_am6594"
+author: "Alice Mao"
+date: "2024-10-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load necessary libraries
+library(readxl)
+library(dplyr)
+library(tidyr)
+```
+
+
+# Problem 1
+
+
+# Problem 2
+
+```{r}
+#Deal with Mr. Trash Wheel sheet
+
+#Import Mr. Trash Wheel sheet
+mr_trash <- read_excel(
+  path = "~/Desktop/p8105_hw2_am6594/data/202409 Trash Wheel Collection Data.xlsx", 
+  sheet = 1, skip = 1) %>%
+  select(-15, -16) #Delete empty columns
+
+
+mr_trash_clean <- mr_trash %>%
+  filter(!is.na(Dumpster)) %>%  #Omit rows that do not include dumpster-specific data
+  
+  #Use reasonable variable names
+  rename(
+    date = 'Date',
+    weight_tons = 'Weight (tons)',
+    volume_cubic_yards = 'Volume (cubic yards)',
+    plastic_bottles = 'Plastic Bottles',
+    polystyrene = 'Polystyrene',
+    cigarette_butts = 'Cigarette Butts',
+    glass_bottles = 'Glass Bottles',
+    plastic_bags = 'Plastic Bags',
+    wrapper = 'Wrappers',
+    sports_balls = 'Sports Balls',
+    homes_powered = 'Homes Powered*'
+  ) %>%
+  #Round and convert 'sports_balls'
+  mutate(sports_balls = as.integer(round(sports_balls, 0)),
+         trash_wheel = "Mr. Trash Wheel",  #To keep track of Trash Wheel
+         Year = as.integer(Year) #Format Year
+         )
+
+```
+
+```{r}
+#Deal with Professor Trash Wheel
+
+#Import Professor Trash Wheel
+prof_trash <- read_excel(
+  path = "~/Desktop/p8105_hw2_am6594/data/202409 Trash Wheel Collection Data.xlsx",
+  sheet = "Professor Trash Wheel",
+  )
+
+#Clean the Professor Trash Wheel data
+prof_trash_clean <- prof_trash %>%
+  filter(!is.na(Dumpster)) %>%  # Omit rows that do not include dumpster-specific data
+  #Use reasonable variable names
+  rename(
+    date = 'Date',
+    weight_tons = 'Weight (tons)',
+    volume_cubic_yards = 'Volume (cubic yards)',
+    plastic_bottles = 'Plastic Bottles',
+    polystyrene = 'Polystyrene',
+    cigarette_butts = 'Cigarette Butts',
+    glass_bottles = 'Glass Bottles',
+    plastic_bags = 'Plastic Bags',
+    wrapper = 'Wrappers',
+    homes_powered = 'Homes Powered*'
+  ) %>%
+  mutate(trash_wheel = "Prof. Trash Wheel",    #Keep track
+         Year = as.integer(Year))   #Format Year
+```
+
+```{r}
+#Deal with Gwynnda Trash Wheel
+
+#Import Gwynnda Trash Wheel
+gwynnda_trash <- read_excel(
+  path = '~/Desktop/p8105_hw2_am6594/data/202409 Trash Wheel Collection Data.xlsx',
+  sheet = "Gwynnda Trash Wheel")
+
+gwynnda_trash_clean <- gwynnda_trash %>%
+  filter(!is.na(Dumpster)) %>%  #Omit rows that do not include dumpster-specific data
+  #Use reasonable variable names
+  rename(
+    date = 'Date',
+    weight_tons = 'Weight (tons)',
+    volume_cubic_yards = 'Volume (cubic yards)',
+    plastic_bottles = 'Plastic Bottles',
+    polystyrene = 'Polystyrene',
+    cigarette_butts = 'Cigarette Butts',
+    plastic_bags = 'Plastic Bags',
+    wrapper = 'Wrappers',
+    homes_powered = 'Homes Powered*'
+  ) %>%
+  mutate(trash_wheel = "Gwynnda Trash Wheel",    #Keep track
+         Year = as.integer(Year))   #Format Year
+
+```
+
+```{r}
+#Combine
+
+#Add 'sports_balls' and 'glass_bottles' columns to Gwynnda's data
+gwynnda_trash_clean <- gwynnda_trash_clean %>%
+  mutate(
+    sports_balls = ifelse(!"sports_balls" %in% colnames(.), NA, sports_balls),
+    glass_bottles = ifelse(!"glass_bottles" %in% colnames(.), NA, glass_bottles)
+  )
+
+#Add 'sports_balls' column to Professor's data
+prof_trash_clean <- prof_trash_clean %>%
+  mutate(
+    sports_balls = ifelse(!"sports_balls" %in% colnames(.), NA, sports_balls)
+  )
+
+#Combine the cleaned datasets
+combined_trash_wheel_data <- bind_rows(mr_trash_clean, 
+                                       prof_trash_clean, gwynnda_trash_clean)
+
+```
+
+```{r}
+#Calculation
+
+#Calculate the total weight of trash collected by Professor Trash Wheel
+total_weight_prof <- combined_trash_wheel_data %>%
+  filter(trash_wheel == "Prof. Trash Wheel") %>%  # Filter only Professor Trash Wheel data
+  summarize(total_weight = sum(weight_tons, na.rm = TRUE))  # Calculate total weight
+
+#Calculate the total number of cigarette butts collected by Gwynnda in June of 2022
+total_cig_butts_gwynnda_june_2022 <- combined_trash_wheel_data %>%
+  filter(trash_wheel == "Gwynnda Trash Wheel",  # Filter for Gwynnda Trash Wheel data
+         format(date, "%Y-%m") == "2022-06") %>%  # Select data for June 2022
+  summarize(total_cig_butts = sum(cigarette_butts, na.rm = TRUE))  # Calculate total cigarette butts
+```
+
+The combined Trash Wheel dataset contains data from three trash collection systems: Mr. Trash Wheel, Professor Trash Wheel, and Gwynnda Trash Wheel. The combined dataset contains variables `r colnames(combined_trash_wheel_data)`. The combined dataset has a total of `r nrow(combined_trash_wheel_data)` data. For available data, the total weight of trash collected by Professor Trash Wheel `r total_weight_prof` and the total number of cigarette butts collected by Gwynnda in June of 2022 `r total_cig_butts_gwynnda_june_2022`.
+
+# Problem 3
